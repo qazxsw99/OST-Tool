@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoMoney API Tester</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      background: #f6f8fa;
+      color: #24292f;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      padding: 8px 18px;
+      background: #ffffff;
+      border-bottom: 1px solid #d0d7de;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    header h1 { font-size: 14px; font-weight: 600; color: #24292f; }
+
+    /* ── API SELECTOR BAR ── */
+    .api-bar {
+      padding: 8px 14px;
+      background: #f6f8fa;
+      border-bottom: 1px solid #d0d7de;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .method-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: #dafbe1;
+      color: #1a7f37;
+      border: 1px solid #aceebb;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .method-badge.get  { background: #ddf4ff; color: #0969da; border-color: #54aeff; }
+    .method-badge.post { background: #dafbe1; color: #1a7f37; border-color: #aceebb; }
+    #apiSelect {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      color: #24292f;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 10px;
+      outline: none;
+      cursor: pointer;
+    }
+    #apiSelect:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,.12); }
+    .path-hint {
+      font-size: 11px;
+      color: #8c959f;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 200px;
+    }
+
+    /* ── LAYOUT ── */
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── LEFT PANEL ── */
+    .left {
+      width: 450px;
+      min-width: 340px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #d0d7de;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .panel-tabs {
+      display: flex;
+      background: #f6f8fa;
+      border-bottom: 1px solid #d0d7de;
+      flex-shrink: 0;
+      padding: 0 6px;
+    }
+    .panel-tab {
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      color: #57606a;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      user-select: none;
+      transition: color .15s;
+    }
+    .panel-tab:hover { color: #24292f; }
+    .panel-tab.active { color: #0969da; border-bottom-color: #fd8c73; }
+
+    .tab-content { display: none; flex: 1; overflow-y: auto; padding: 14px 16px; flex-direction: column; gap: 10px; }
+    .tab-content.active { display: flex; }
+
+    /* ── FORM ELEMENTS ── */
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: #57606a;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #eaeef2;
+      margin-top: 2px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 4px; }
+
+    label {
+      font-size: 11px;
+      font-weight: 500;
+      color: #57606a;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    label .req { color: #cf222e; font-size: 10px; }
+    label .opt { color: #1a7f37; font-size: 10px; }
+
+    input[type="text"],
+    input[type="number"],
+    select.form-select,
+    textarea {
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      color: #24292f;
+      font-size: 12px;
+      padding: 6px 10px;
+      width: 100%;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+    }
+    input:focus, textarea:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,.12); }
+    input::placeholder, textarea::placeholder { color: #8c959f; }
+    textarea { resize: vertical; min-height: 60px; }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .divider { border: none; border-top: 1px solid #eaeef2; margin: 2px 0; }
+
+    .checkbox-row {
+      display: flex; align-items: center; gap: 7px; padding: 4px 0;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 15px; height: 15px; accent-color: #0969da; cursor: pointer;
+    }
+    .checkbox-row label {
+      font-size: 12px; color: #24292f; cursor: pointer; font-weight: 400;
+    }
+
+    /* ── PRESET JSON section ── */
+    .preset-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .saved-indicator { font-size: 11px; color: #1a7f37; display: none; }
+    .saved-indicator.show { display: inline; }
+    .json-error {
+      font-size: 11px; color: #cf222e;
+      background: #ffebe9; border: 1px solid #ff8182;
+      border-radius: 6px; padding: 6px 10px; display: none;
+    }
+    .json-error.show { display: block; }
+
+    /* ── SIGN PREVIEW ── */
+    .sign-preview {
+      background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px;
+      padding: 8px 10px; font-family: monospace; font-size: 10px; color: #57606a;
+      word-break: break-all; white-space: pre-wrap; max-height: 70px; overflow-y: auto;
+    }
+
+    /* ── BUTTONS ── */
+    .btn-send {
+      margin: 10px 14px; flex-shrink: 0; padding: 9px;
+      background: #1a7f37; color: #ffffff;
+      border: 1px solid rgba(27,31,36,.15); border-radius: 6px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background .15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-send:hover { background: #1c8139; }
+    .btn-send:disabled { background: #94d3a2; cursor: not-allowed; }
+
+    .btn {
+      padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      cursor: pointer; border: 1px solid #d0d7de; background: #f6f8fa; color: #24292f;
+      transition: background .15s; white-space: nowrap;
+    }
+    .btn:hover { background: #eaeef2; }
+    .btn-primary { background: #0969da; color: #fff; border-color: rgba(27,31,36,.15); }
+    .btn-primary:hover { background: #0860ca; }
+
+    /* ── RIGHT PANEL ── */
+    .right { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #ffffff; }
+
+    .resp-header {
+      padding: 8px 16px; background: #f6f8fa; border-bottom: 1px solid #d0d7de;
+      flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+    }
+    .resp-header > span { font-size: 12px; font-weight: 600; color: #57606a; }
+
+    .status-badge {
+      padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; display: none;
+    }
+    .status-badge.ok  { background: #dafbe1; color: #1a7f37; border: 1px solid #aceebb; display: inline-block; }
+    .status-badge.err { background: #ffebe9; color: #cf222e; border: 1px solid #ff8182; display: inline-block; }
+
+    .resp-toolbar {
+      padding: 5px 16px; background: #f6f8fa; border-bottom: 1px solid #eaeef2;
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .resp-toolbar span { font-size: 11px; color: #8c959f; }
+    .elapsed { font-size: 11px; color: #8c959f; }
+
+    .resp-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+    pre#responseOutput {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 12px; line-height: 1.65; white-space: pre-wrap;
+      word-break: break-all; color: #24292f; margin: 0;
+    }
+
+    .json-key  { color: #0550ae; }
+    .json-str  { color: #0a3069; }
+    .json-num  { color: #953800; }
+    .json-bool { color: #cf222e; }
+    .json-null { color: #8250df; }
+
+    .req-log { flex-shrink: 0; border-top: 1px solid #d0d7de; max-height: 180px; overflow-y: auto; background: #f6f8fa; }
+    .req-log-title {
+      padding: 5px 16px; font-size: 10px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: #8c959f; border-bottom: 1px solid #eaeef2;
+      position: sticky; top: 0; background: #f6f8fa;
+    }
+    .req-log pre { font-family: monospace; font-size: 11px; color: #57606a; padding: 8px 16px; white-space: pre-wrap; word-break: break-all; }
+
+    .spinner {
+      display: inline-block; width: 13px; height: 13px;
+      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #afb8c1; }
+
+    code.inline {
+      background: #eaeef2; padding: 1px 5px; border-radius: 4px; font-size: 10px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>GoMoney API Tester</h1>
+</header>
+
+<div class="layout">
+
+  <!-- ══════════════ LEFT PANEL ══════════════ -->
+  <div class="left">
+
+    <!-- API Selector -->
+    <div class="api-bar">
+      <span class="method-badge post" id="methodBadge">POST</span>
+      <select id="apiSelect" onchange="onApiChange()"></select>
+      <span class="path-hint" id="pathHint"></span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="panel-tabs">
+      <div class="panel-tab active" data-tab="request">Request</div>
+      <div class="panel-tab" data-tab="auth">Auth / Config</div>
+    </div>
+
+    <!-- ── REQUEST TAB ── -->
+    <div class="tab-content active" id="tab-request">
+
+      <!-- Preset JSON -->
+      <div class="section-title">Preset JSON</div>
+      <p style="font-size:11px;color:#57606a;line-height:1.5">
+        編輯 JSON → <strong>Load to Form</strong> 填入表單；<strong>Save</strong> 儲存至 localStorage。
+      </p>
+      <div class="preset-header">
+        <button class="btn btn-primary" onclick="loadJsonToForm()">Load to Form</button>
+        <button class="btn" onclick="savePreset()">Save</button>
+        <button class="btn" onclick="resetPreset()">Reset Default</button>
+        <span class="saved-indicator" id="savedIndicator">✓ 已儲存</span>
+      </div>
+      <div class="json-error" id="jsonError"></div>
+      <textarea id="presetJson" style="min-height:180px;font-size:11px"></textarea>
+
+      <hr class="divider" />
+
+      <!-- Dynamic form fields (rendered per API) -->
+      <div id="formFields"></div>
+
+    </div>
+
+    <!-- ── AUTH / CONFIG TAB ── -->
+    <div class="tab-content" id="tab-auth">
+
+      <div class="section-title">Endpoint</div>
+      <div class="field">
+        <label>Base URL <span class="req">*</span></label>
+        <input type="text" id="baseUrl" value="https://uat-payment-web-api-k8s.mxsyl.com" />
+      </div>
+
+      <hr class="divider" />
+      <div class="section-title">Signature Config</div>
+      <p style="font-size:11px;color:#57606a;line-height:1.5;margin-bottom:2px">
+        自動注入 Headers：
+        <code class="inline">Timestamp</code>
+        <code class="inline">SystemId</code>
+        <code class="inline">Sign</code>
+      </p>
+      <div class="field">
+        <label>SystemId <span class="req">*</span></label>
+        <input type="text" id="systemId" value="49258412235845" />
+      </div>
+      <div class="field">
+        <label>SecurityKey <span class="req">*</span></label>
+        <input type="text" id="securityKey" value="hello$1234" />
+      </div>
+
+      <hr class="divider" />
+      <div class="section-title">Sign Preview</div>
+      <p style="font-size:11px;color:#57606a;margin-bottom:4px">上次請求簽名原文（UPPERCASE，末尾為 timestamp）：</p>
+      <div class="sign-preview" id="signPreview">— 尚未送出請求 —</div>
+
+      <hr class="divider" />
+      <div class="section-title">Extra Custom Headers</div>
+      <p style="font-size:11px;color:#57606a;margin-bottom:4px">
+        每行一個，格式：<code class="inline">Header-Name: value</code>
+      </p>
+      <textarea id="extraHeaders" placeholder="X-Debug: true" style="min-height:80px"></textarea>
+
+    </div>
+
+    <button class="btn-send" id="btnSend" onclick="sendRequest()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M1.5 8a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0ZM8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm.75 4.75a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z"/>
+      </svg>
+      Send Request
+    </button>
+  </div>
+
+  <!-- ══════════════ RIGHT PANEL ══════════════ -->
+  <div class="right">
+    <div class="resp-header">
+      <span>Response</span>
+      <span class="status-badge" id="statusBadge"></span>
+      <span class="elapsed" id="elapsed"></span>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="clearResponse()">Clear</button>
+      <button class="btn" onclick="copyResponse()">Copy</button>
+    </div>
+    <div class="resp-toolbar">
+      <span id="respMeta">— 尚未送出請求 —</span>
+    </div>
+    <div class="resp-body">
+      <pre id="responseOutput"></pre>
+    </div>
+    <div class="req-log" id="reqLogWrapper" style="display:none">
+      <div class="req-log-title">Request Detail</div>
+      <pre id="reqLog"></pre>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Sequential loader with timestamp-based cache-busting.
+  // Config must finish loading before core starts (core depends on API_REGISTRY & TEMPLATE_VARS).
+  (function () {
+    const v = Date.now();
+    function load(src, next) {
+      const s = document.createElement('script');
+      s.src = src + '?v=' + v;
+      if (next) s.onload = next;
+      document.head.appendChild(s);
+    }
+    load('gomoney-config.js', () => load('gomoney-core.js'));
+  })();
+</script>
+</body>
+</html>
