@@ -27,9 +27,9 @@ const API_REGISTRY = {
     defaultPreset: {
       merchantOrderId:  '{MerchantOrderId}',
       paymentMethodId:  'c2cbanktransfer',
-      userId:           '99912399123',
+      userId:           '9933123',
       ClientIp:         '52.193.8.206',
-      amount:           '23.0000000000',
+      amount:           '24.0000000000',
       callbackUrl:      'http://gbd-uat-alb-1644329973.ap-northeast-1.elb.amazonaws.com:5016/v1/wallet/paymentcallback/1',
       currency:         'CNY',
       isFromBackend:    false,
@@ -41,14 +41,15 @@ const API_REGISTRY = {
       userVipLevel:     9,
       withdrawAddress:  '',
       extraData: {
+        PaymentRisk: false,
         BankBranchName:    null,
         Province:          null,
         City:              null,
         BankCode:          'BJBANK',
         BankName:          '北京银行',
         BankAccountHolder: '測試二',
-        BankAccountNumber: '313341233'
-      }
+        BankAccountNumber: '313341233',        
+      },      
     },
     rows: [
       { type: 'section', label: 'Required' },

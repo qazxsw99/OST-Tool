@@ -1,0 +1,97 @@
+{
+  "default": {
+    "userInfo": {
+      "isTest": false,
+      "isFirstWithdrawal": false,
+      "isFirstWithdrawalAttempt": false,
+      "lastLoginIp": "192.168.1.100",
+      "countryCode": "JP",
+      "address": "Test Address",
+      "ngrLifeTime": 12345.67,
+      "kycLevel": 2,
+      "riskControl": 0,
+      "vipLevel": 3,
+      "netCashLifeTime": 98765.43,
+      "netCashVsTotalDepositRate": 0.85,
+      "transactionInfo": {
+        "depositTypes": [
+          0,
+          1
+        ],
+        "withdrawTypes": [
+          0
+        ]
+      }
+    },
+    "userDynamicInfo": {
+      "ngrInTimePeriod": 5432.1,
+      "totalWithdrawalAmountInTimePeriod": 20000,
+      "totalWithdrawalCountInTimePeriod": 5,
+      "netCashInTimePeriod": 3210.5
+    }
+  },
+  "uids": {
+    "7533967": {
+      "userInfo": {
+        "isTest": false,
+        "isFirstWithdrawal": true,
+        "isFirstWithdrawalAttempt": false,
+        "lastLoginIp": "192.168.1.100",
+        "countryCode": "JP",
+        "address": "Test Address",
+        "ngrLifeTime": 12345.67,
+        "kycLevel": 2,
+        "riskControl": 0,
+        "vipLevel": 3,
+        "netCashLifeTime": 98765.43,
+        "netCashVsTotalDepositRate": 0.85,
+        "transactionInfo": {
+          "depositTypes": [
+            0,
+            1
+          ],
+          "withdrawTypes": [
+            0
+          ]
+        }
+      },
+      "userDynamicInfo": {
+        "ngrInTimePeriod": 5432.1,
+        "totalWithdrawalAmountInTimePeriod": 20000,
+        "totalWithdrawalCountInTimePeriod": 5,
+        "netCashInTimePeriod": 3210.5
+      }
+    },
+    "9933123": {
+      "userInfo": {
+        "isTest": false,
+        "isFirstWithdrawal": false,
+        "isFirstWithdrawalAttempt": false,
+        "lastLoginIp": "192.168.1.100",
+        "countryCode": "CN",
+        "address": "Test Address",
+        "ngrLifeTime": 393.1,
+        "kycLevel": 2,
+        "riskControl": 0,
+        "vipLevel": 3,
+        "netCashLifeTime": 321.22,
+        "netCashVsTotalDepositRate": 0.85,
+        "transactionInfo": {
+          "depositTypes": [
+            0,
+            1
+          ],
+          "withdrawTypes": [
+            0
+          ]
+        }
+      },
+      "userDynamicInfo": {
+        "ngrInTimePeriod": 33.2,
+        "totalWithdrawalAmountInTimePeriod": 2150,
+        "totalWithdrawalCountInTimePeriod": 3,
+        "netCashInTimePeriod": 31.2
+      }
+    }
+  }
+}
