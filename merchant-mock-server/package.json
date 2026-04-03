@@ -1,0 +1,17 @@
+{
+  "name": "merchant-mock-server",
+  "version": "1.0.0",
+  "private": true,
+  "config": {
+    "ngrok_authtoken": ""
+  },
+  "scripts": {
+    "mock": "NGROK_AUTHTOKEN=$npm_package_config_ngrok_authtoken node withdrawal-mock-server.js",
+    "mock:local": "node withdrawal-mock-server-local.js"
+  },
+  "dependencies": {
+    "@ngrok/ngrok": "^1.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  }
+}

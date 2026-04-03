@@ -1,0 +1,10 @@
+services:
+  merchant-mock-server:
+    image: merchant-mock-server
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: production
+    ports:
+      - 3099:3099
