@@ -27,6 +27,19 @@
     }
     ,
     {
+      "label": "Open GitHub Pages",
+      "type": "shell",
+      "command": "open https://qazxsw99.github.io/OST-Tool/",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "never"
+      }
+    }
+    ,
+    {
       "label": "Publish to gh-pages",
       "type": "shell",
       "command": "git rev-parse --abbrev-ref HEAD | xargs -I{} sh -c 'git checkout gh-pages && git merge {} --no-edit && git push origin gh-pages && git checkout {}'",
