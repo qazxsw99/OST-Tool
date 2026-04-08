@@ -25,5 +25,20 @@
         "focus": false
       }
     }
+    ,
+    {
+      "label": "Publish to gh-pages",
+      "type": "shell",
+      "command": "git rev-parse --abbrev-ref HEAD | xargs -I{} sh -c 'git checkout gh-pages && git merge {} --no-edit && git push origin gh-pages && git checkout {}'",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    }
   ]
 }
