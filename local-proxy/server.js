@@ -51,7 +51,11 @@ const server = http.createServer((req, res) => {
   const forwardHeaders = { ...req.headers, host: target.host };
   delete forwardHeaders['content-length']; // let Node recalculate
 
+  const sep = '─'.repeat(60);
+  console.log(`\n${sep}`);
   console.log(`→ ${req.method} ${targetUrl}`);
+
+  const hasBody = req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS';
 
   const proxyReq = transport.request(
     {
@@ -63,7 +67,14 @@ const server = http.createServer((req, res) => {
     },
     (proxyRes) => {
       console.log(`← ${proxyRes.statusCode} ${targetUrl}`);
-      res.writeHead(proxyRes.statusCode, { ...proxyRes.headers, ...CORS_HEADERS });
+      // Strip upstream CORS headers to avoid duplicates — we set our own
+      const upstreamHeaders = { ...proxyRes.headers };
+      delete upstreamHeaders['access-control-allow-origin'];
+      delete upstreamHeaders['access-control-allow-methods'];
+      delete upstreamHeaders['access-control-allow-headers'];
+      delete upstreamHeaders['access-control-expose-headers'];
+      delete upstreamHeaders['access-control-max-age'];
+      res.writeHead(proxyRes.statusCode, { ...upstreamHeaders, ...CORS_HEADERS });
       proxyRes.pipe(res);
     }
   );
@@ -76,7 +87,23 @@ const server = http.createServer((req, res) => {
     res.end('Proxy error: ' + err.message);
   });
 
-  req.pipe(proxyReq);
+  if (hasBody) {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => {
+      const body = Buffer.concat(chunks);
+      console.log(`  Body (${body.length} bytes):`);
+      const text = body.toString('utf8');
+      try {
+        console.log('  ' + JSON.stringify(JSON.parse(text), null, 2).replace(/\n/g, '\n  '));
+      } catch {
+        console.log('  ' + text);
+      }
+      proxyReq.end(body);
+    });
+  } else {
+    req.pipe(proxyReq);
+  }
 });
 
 server.listen(PORT, '127.0.0.1', () => {

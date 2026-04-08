@@ -80,7 +80,7 @@
     }
 
     /* ── LAYOUT ── */
-    .layout { display: flex; flex: 1; overflow: hidden; }
+    .layout { display: flex; flex: 1; overflow: hidden; position: relative; }
 
     /* ── LEFT PANEL ── */
     .left {
@@ -92,7 +92,37 @@
       border-right: 1px solid #d0d7de;
       background: #ffffff;
       overflow: hidden;
+      transition: width .2s ease, min-width .2s ease;
     }
+    .left.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      border-right: none;
+    }
+
+    /* ── SIDEBAR TOGGLE BUTTON ── */
+    .sidebar-toggle {
+      position: absolute;
+      top: 50%;
+      left: 420px;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      width: 18px;
+      height: 48px;
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-radius: 0 6px 6px 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8c959f;
+      font-size: 10px;
+      transition: left .2s ease, background .12s, color .12s;
+      box-shadow: 2px 0 4px rgba(0,0,0,.06);
+    }
+    .sidebar-toggle:hover { background: #f6f8fa; color: #24292f; }
+    .sidebar-toggle.collapsed { left: 0; border-radius: 0 6px 6px 0; }
 
     .panel-tabs {
       display: flex;
@@ -239,12 +269,19 @@
     .json-bool { color: #cf222e; }
     .json-null { color: #8250df; }
 
-    .req-log { flex-shrink: 0; border-top: 1px solid #d0d7de; max-height: 160px; overflow-y: auto; background: #f6f8fa; }
+    .req-log { flex-shrink: 0; border-top: 1px solid #d0d7de; background: #f6f8fa; }
     .req-log-title {
       padding: 5px 16px; font-size: 10px; font-weight: 700; letter-spacing: .07em;
-      text-transform: uppercase; color: #8c959f; border-bottom: 1px solid #eaeef2;
-      position: sticky; top: 0; background: #f6f8fa;
+      text-transform: uppercase; color: #8c959f;
+      display: flex; align-items: center; gap: 6px;
+      cursor: pointer; user-select: none;
+      transition: background .12s;
     }
+    .req-log-title:hover { background: #eaeef2; color: #24292f; }
+    .req-log-title .toggle-icon { margin-left: auto; font-size: 9px; transition: transform .15s; }
+    .req-log-title.open .toggle-icon { transform: rotate(180deg); }
+    .req-log-body { max-height: 160px; overflow-y: auto; display: none; border-top: 1px solid #eaeef2; }
+    .req-log-body.open { display: block; }
     .req-log pre { font-family: monospace; font-size: 11px; color: #57606a; padding: 8px 16px; white-space: pre-wrap; word-break: break-all; }
 
     .spinner {
@@ -400,9 +437,10 @@
 </header>
 
 <div class="layout">
+  <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle sidebar">&#8249;</button>
 
   <!-- ══════════════ LEFT PANEL ══════════════ -->
-  <div class="left">
+  <div class="left" id="leftPanel">
 
     <!-- API Selector Bar -->
     <div class="api-bar">
@@ -466,6 +504,13 @@
       </p>
       <textarea id="extraHeaders" placeholder="X-Debug: true&#10;X-Custom: value" style="min-height:80px"></textarea>
 
+      <hr class="divider" />
+      <div class="section-title">Behaviour</div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="autoHideSidebar" onchange="savePrefs()" />
+        <label for="autoHideSidebar">Auto-hide sidebar after successful request</label>
+      </div>
+
     </div>
 
     <button class="btn-send" id="btnSend" onclick="sendRequest()">
@@ -509,8 +554,13 @@
     </div>
     <div class="table-footer" id="tableFooter" style="display:none"></div>
     <div class="req-log" id="reqLogWrapper" style="display:none">
-      <div class="req-log-title">Request Detail</div>
-      <pre id="reqLog"></pre>
+      <div class="req-log-title" id="reqLogTitle" onclick="toggleReqLog()">
+        Request Detail
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="req-log-body" id="reqLogBody">
+        <pre id="reqLog"></pre>
+      </div>
     </div>
   </div>
 
@@ -541,6 +591,7 @@ function init() {
   });
   onApiChange();
   loadSavedAuth();
+  loadPrefs();
 
   // Tab switching
   document.querySelectorAll('.panel-tab').forEach(tab => {
@@ -715,6 +766,13 @@ async function sendRequest() {
     const badge = document.getElementById('statusBadge');
     badge.textContent = res.status + ' ' + res.statusText;
     badge.className = 'status-badge ' + (res.ok ? 'ok' : 'err');
+    if (res.ok && document.getElementById('autoHideSidebar').checked) {
+      document.getElementById('leftPanel').classList.add('collapsed');
+      const tb = document.getElementById('sidebarToggle');
+      tb.classList.add('collapsed');
+      tb.innerHTML = '&#8250;';
+      localStorage.setItem('gg_admin_sidebarCollapsed', '1');
+    }
 
     document.getElementById('elapsed').textContent = elapsed;
     document.getElementById('respMeta').textContent =
@@ -845,6 +903,42 @@ function toggleTokenView() {
 }
 
 // ── Persist auth to localStorage ──
+// ── Sidebar toggle ──
+function toggleSidebar() {
+  const panel  = document.getElementById('leftPanel');
+  const btn    = document.getElementById('sidebarToggle');
+  const collapsed = panel.classList.toggle('collapsed');
+  btn.classList.toggle('collapsed', collapsed);
+  btn.innerHTML = collapsed ? '&#8250;' : '&#8249;';
+  localStorage.setItem('gg_admin_sidebarCollapsed', collapsed ? '1' : '');
+}
+
+// ── Request Detail toggle ──
+function toggleReqLog() {
+  const title = document.getElementById('reqLogTitle');
+  const body  = document.getElementById('reqLogBody');
+  const open  = body.classList.toggle('open');
+  title.classList.toggle('open', open);
+}
+
+// ── Prefs (auto-hide sidebar) ──
+function savePrefs() {
+  localStorage.setItem('gg_admin_autoHide', document.getElementById('autoHideSidebar').checked ? '1' : '');
+}
+
+function loadPrefs() {
+  const autoHide = !!localStorage.getItem('gg_admin_autoHide');
+  document.getElementById('autoHideSidebar').checked = autoHide;
+
+  const sidebarCollapsed = !!localStorage.getItem('gg_admin_sidebarCollapsed');
+  if (sidebarCollapsed) {
+    document.getElementById('leftPanel').classList.add('collapsed');
+    const btn = document.getElementById('sidebarToggle');
+    btn.classList.add('collapsed');
+    btn.innerHTML = '&#8250;';
+  }
+}
+
 function saveAuth() {
   localStorage.setItem('gg_admin_baseUrl', document.getElementById('baseUrl').value);
   localStorage.setItem('gg_admin_token', document.getElementById('bearerToken').value);
