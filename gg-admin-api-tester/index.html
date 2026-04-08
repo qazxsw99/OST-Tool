@@ -529,6 +529,7 @@
       <span class="status-badge" id="statusBadge"></span>
       <span class="elapsed" id="elapsed"></span>
       <div style="flex:1"></div>
+      <button class="btn" id="btnResend" onclick="sendRequest()" style="margin-right:4px" disabled>Resend</button>
       <button class="btn" onclick="clearResponse()" style="margin-right:4px">Clear</button>
       <button class="btn" onclick="copyResponse()">Copy</button>
     </div>
@@ -809,6 +810,7 @@ async function sendRequest() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 1.163A1 1 0 0 1 1.97.28l12.868 6.837a1 1 0 0 1 0 1.766L1.969 15.72A1 1 0 0 1 .5 14.836V10.33a1 1 0 0 1 .816-.983L8.5 8 1.316 6.653A1 1 0 0 1 .5 5.67V1.163Z"/></svg> Send Request`;
+    document.getElementById('btnResend').disabled = false;
   }
 
   saveAuth();
