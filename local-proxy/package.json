@@ -1,0 +1,13 @@
+{
+  "name": "local-cors-proxy",
+  "version": "1.0.0",
+  "description": "Local CORS proxy for gg-admin-api-tester",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:3000": "node server.js --port=3000"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}

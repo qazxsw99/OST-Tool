@@ -430,6 +430,17 @@
         <label>Base URL <span class="req">*</span></label>
         <input type="text" id="baseUrl" />
       </div>
+      <div class="field" style="flex-direction:row;align-items:center;gap:8px;">
+        <label style="margin-bottom:0;flex:1;">Local CORS Proxy</label>
+        <label style="display:flex;align-items:center;gap:6px;margin-bottom:0;cursor:pointer;">
+          <input type="checkbox" id="corsProxy" onchange="onCorsProxyToggle()" style="width:14px;height:14px;" />
+          <span style="font-size:11px;color:#57606a;">Enable</span>
+        </label>
+      </div>
+      <div class="field" id="corsProxyUrlField" style="display:none;">
+        <label>Proxy URL</label>
+        <input type="text" id="corsProxyUrl" placeholder="http://127.0.0.1:3009" oninput="saveAuth()" />
+      </div>
 
       <hr class="divider" />
       <div class="section-title">Authorization</div>
@@ -649,7 +660,10 @@ async function sendRequest() {
     if (val !== '') qp.set(p.key, val);
   }
 
-  const url = baseUrl + currentApi.path + (qp.toString() ? '?' + qp.toString() : '');
+  const rawUrl = baseUrl + currentApi.path + (qp.toString() ? '?' + qp.toString() : '');
+  const useCorsProxy = document.getElementById('corsProxy').checked;
+  const proxyBase = (document.getElementById('corsProxyUrl').value.trim().replace(/\/$/, '')) || 'http://127.0.0.1:3009';
+  const url = useCorsProxy ? proxyBase + '/?' + encodeURIComponent(rawUrl) : rawUrl;
 
   // Build headers — start with config defaults, then auth, then extras
   const headers = Object.assign({ 'accept': 'text/plain' }, (window.APP_CONFIG && window.APP_CONFIG.defaultHeaders) || {});
@@ -835,6 +849,14 @@ function saveAuth() {
   localStorage.setItem('gg_admin_baseUrl', document.getElementById('baseUrl').value);
   localStorage.setItem('gg_admin_token', document.getElementById('bearerToken').value);
   localStorage.setItem('gg_admin_extraHeaders', document.getElementById('extraHeaders').value);
+  localStorage.setItem('gg_admin_corsProxy', document.getElementById('corsProxy').checked ? '1' : '');
+  localStorage.setItem('gg_admin_corsProxyUrl', document.getElementById('corsProxyUrl').value);
+}
+
+function onCorsProxyToggle() {
+  const enabled = document.getElementById('corsProxy').checked;
+  document.getElementById('corsProxyUrlField').style.display = enabled ? '' : 'none';
+  saveAuth();
 }
 
 function defaultHeadersToText(headers) {
@@ -850,6 +872,10 @@ function loadSavedAuth() {
   document.getElementById('baseUrl').value      = url;
   document.getElementById('bearerToken').value  = token;
   document.getElementById('extraHeaders').value = extra;
+  const corsEnabled = !!localStorage.getItem('gg_admin_corsProxy');
+  document.getElementById('corsProxy').checked  = corsEnabled;
+  document.getElementById('corsProxyUrl').value = localStorage.getItem('gg_admin_corsProxyUrl') || 'http://127.0.0.1:3009';
+  document.getElementById('corsProxyUrlField').style.display = corsEnabled ? '' : 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════
