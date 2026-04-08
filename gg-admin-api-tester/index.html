@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GG Admin API Tester</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      background: #f6f8fa;
+      color: #24292f;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      padding: 8px 18px;
+      background: #ffffff;
+      border-bottom: 1px solid #d0d7de;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    header h1 { font-size: 14px; font-weight: 600; color: #24292f; }
+    header .subtitle { font-size: 11px; color: #8c959f; }
+
+    /* ── API SELECTOR BAR ── */
+    .api-bar {
+      padding: 8px 14px;
+      background: #f6f8fa;
+      border-bottom: 1px solid #d0d7de;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .method-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .method-badge.get  { background: #ddf4ff; color: #0969da; border: 1px solid #54aeff; }
+    .method-badge.post { background: #dafbe1; color: #1a7f37; border: 1px solid #aceebb; }
+    .method-badge.put  { background: #fff8c5; color: #9a6700; border: 1px solid #d4a72c; }
+    .method-badge.delete { background: #ffebe9; color: #cf222e; border: 1px solid #ff8182; }
+
+    #apiSelect {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      color: #24292f;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 10px;
+      outline: none;
+      cursor: pointer;
+    }
+    #apiSelect:focus { border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,.12); }
+
+    .path-hint {
+      font-size: 11px;
+      color: #8c959f;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 260px;
+    }
+
+    /* ── LAYOUT ── */
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── LEFT PANEL ── */
+    .left {
+      width: 420px;
+      min-width: 320px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #d0d7de;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .panel-tabs {
+      display: flex;
+      background: #f6f8fa;
+      border-bottom: 1px solid #d0d7de;
+      flex-shrink: 0;
+      padding: 0 6px;
+    }
+    .panel-tab {
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      color: #57606a;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      user-select: none;
+      transition: color .15s;
+    }
+    .panel-tab:hover { color: #24292f; }
+    .panel-tab.active { color: #0969da; border-bottom-color: #0969da; }
+
+    .tab-content { display: none; flex: 1; overflow-y: auto; padding: 14px 16px; flex-direction: column; gap: 10px; }
+    .tab-content.active { display: flex; }
+
+    /* ── FORM ELEMENTS ── */
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: #57606a;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #eaeef2;
+      margin-top: 2px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 4px; }
+
+    label {
+      font-size: 11px;
+      font-weight: 500;
+      color: #57606a;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    label .req { color: #cf222e; font-size: 10px; }
+    label .opt { color: #1a7f37; font-size: 10px; }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    select.form-select,
+    textarea {
+      background: #ffffff;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      color: #24292f;
+      font-size: 12px;
+      padding: 6px 10px;
+      width: 100%;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #0969da;
+      box-shadow: 0 0 0 3px rgba(9,105,218,.12);
+    }
+    input::placeholder, textarea::placeholder { color: #8c959f; }
+    textarea { resize: vertical; min-height: 60px; }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .divider { border: none; border-top: 1px solid #eaeef2; margin: 2px 0; }
+
+    .checkbox-row {
+      display: flex; align-items: center; gap: 7px; padding: 4px 0;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 15px; height: 15px; accent-color: #0969da; cursor: pointer;
+    }
+    .checkbox-row label {
+      font-size: 12px; color: #24292f; cursor: pointer; font-weight: 400;
+      border: none; padding: 0;
+    }
+
+    /* ── BUTTONS ── */
+    .btn-send {
+      margin: 10px 14px; flex-shrink: 0; padding: 9px;
+      background: #0969da; color: #ffffff;
+      border: 1px solid rgba(27,31,36,.15); border-radius: 6px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background .15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-send:hover { background: #0860ca; }
+    .btn-send:disabled { background: #80bcff; cursor: not-allowed; }
+
+    .btn {
+      padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      cursor: pointer; border: 1px solid #d0d7de; background: #f6f8fa; color: #24292f;
+      transition: background .15s; white-space: nowrap;
+    }
+    .btn:hover { background: #eaeef2; }
+    .btn-danger { background: #ffebe9; color: #cf222e; border-color: #ff8182; }
+    .btn-danger:hover { background: #ffd7d5; }
+
+    /* ── RIGHT PANEL ── */
+    .right { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #ffffff; }
+
+    .resp-header {
+      padding: 8px 16px; background: #f6f8fa; border-bottom: 1px solid #d0d7de;
+      flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+    }
+    .resp-header > span { font-size: 12px; font-weight: 600; color: #57606a; }
+
+    .status-badge {
+      padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; display: none;
+    }
+    .status-badge.ok  { background: #dafbe1; color: #1a7f37; border: 1px solid #aceebb; display: inline-block; }
+    .status-badge.err { background: #ffebe9; color: #cf222e; border: 1px solid #ff8182; display: inline-block; }
+
+    .resp-toolbar {
+      padding: 5px 16px; background: #f6f8fa; border-bottom: 1px solid #eaeef2;
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap;
+    }
+    .resp-toolbar span { font-size: 11px; color: #8c959f; }
+    .elapsed { font-size: 11px; color: #8c959f; margin-left: auto; }
+
+    .resp-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    pre#responseOutput { flex: 1; overflow-y: auto; padding: 16px; }
+
+    pre#responseOutput {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 12px; line-height: 1.65; white-space: pre-wrap;
+      word-break: break-all; color: #24292f; margin: 0;
+      padding: 16px;
+    }
+
+    .json-key  { color: #0550ae; }
+    .json-str  { color: #0a3069; }
+    .json-num  { color: #953800; }
+    .json-bool { color: #cf222e; }
+    .json-null { color: #8250df; }
+
+    .req-log { flex-shrink: 0; border-top: 1px solid #d0d7de; max-height: 160px; overflow-y: auto; background: #f6f8fa; }
+    .req-log-title {
+      padding: 5px 16px; font-size: 10px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: #8c959f; border-bottom: 1px solid #eaeef2;
+      position: sticky; top: 0; background: #f6f8fa;
+    }
+    .req-log pre { font-family: monospace; font-size: 11px; color: #57606a; padding: 8px 16px; white-space: pre-wrap; word-break: break-all; }
+
+    .spinner {
+      display: inline-block; width: 13px; height: 13px;
+      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #afb8c1; }
+
+    code.inline {
+      background: #eaeef2; padding: 1px 5px; border-radius: 4px; font-size: 10px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+    }
+
+    .empty-state {
+      color: #8c959f; font-size: 12px; text-align: center; padding: 40px 20px;
+    }
+    .empty-state .icon { font-size: 36px; margin-bottom: 10px; }
+
+    /* ── TABLE VIEW ── */
+    .view-toggle {
+      display: none;
+      align-items: center;
+      gap: 2px;
+      background: #eaeef2;
+      border-radius: 6px;
+      padding: 2px;
+      border: 1px solid #d0d7de;
+    }
+    .view-toggle.visible { display: flex; }
+    .view-btn {
+      padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 500;
+      cursor: pointer; border: none; background: transparent; color: #57606a;
+      transition: all .12s;
+    }
+    .view-btn.active { background: #ffffff; color: #24292f; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .view-btn:hover:not(.active) { color: #24292f; }
+
+    .array-path-badge {
+      display: none; font-size: 10px; color: #8c959f;
+      background: #f6f8fa; border: 1px solid #d0d7de;
+      border-radius: 10px; padding: 2px 8px;
+      font-family: 'Cascadia Code','Fira Code',monospace;
+    }
+    .array-path-badge.visible { display: inline-block; }
+
+    #tableWrapper { display: none; flex: 1; overflow: auto; }
+    #tableWrapper.active { display: block; }
+    #responseOutput.hidden { display: none; }
+
+    .resp-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .resp-table thead {
+      position: sticky; top: 0; z-index: 2;
+      background: #f6f8fa;
+    }
+    .resp-table th {
+      padding: 7px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: #57606a;
+      border-bottom: 2px solid #d0d7de;
+      border-right: 1px solid #eaeef2;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    .resp-table th:last-child { border-right: none; }
+    .resp-table th:hover { background: #eaeef2; color: #24292f; }
+    .resp-table th .sort-icon { margin-left: 4px; font-size: 10px; opacity: .45; }
+    .resp-table th.sort-asc .sort-icon::after  { content: '▲'; opacity: 1; }
+    .resp-table th.sort-desc .sort-icon::after { content: '▼'; opacity: 1; }
+    .resp-table th:not(.sort-asc):not(.sort-desc) .sort-icon::after { content: '⇅'; }
+
+    .resp-table tbody tr:nth-child(odd)  { background: #ffffff; }
+    .resp-table tbody tr:nth-child(even) { background: #f6f8fa; }
+    .resp-table tbody tr:hover { background: #ddf4ff; }
+
+    .resp-table td {
+      padding: 6px 12px;
+      border-bottom: 1px solid #eaeef2;
+      border-right: 1px solid #f0f3f6;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #24292f;
+      vertical-align: middle;
+    }
+    .resp-table td:last-child { border-right: none; }
+    .resp-table td.td-num  { color: #953800; font-family: monospace; }
+    .resp-table td.td-bool-t { color: #1a7f37; font-weight: 600; }
+    .resp-table td.td-bool-f { color: #cf222e; font-weight: 600; }
+    .resp-table td.td-null  { color: #8250df; font-style: italic; }
+    .resp-table td.td-obj   { color: #8c959f; font-style: italic; font-size: 11px; }
+    .resp-table td[title] { cursor: help; }
+
+    .table-footer {
+      padding: 6px 16px; font-size: 11px; color: #8c959f;
+      background: #f6f8fa; border-top: 1px solid #eaeef2;
+      flex-shrink: 0;
+    }
+
+    .col-search-row { display: none; }
+    .col-search-row.visible { display: table-row; }
+    .col-search-row td {
+      padding: 4px 6px; background: #f6f8fa;
+      border-bottom: 1px solid #d0d7de;
+    }
+    .col-search-row input {
+      width: 100%; font-size: 11px; padding: 3px 6px;
+      border: 1px solid #d0d7de; border-radius: 4px; outline: none;
+      font-family: inherit; background: #fff; color: #24292f;
+    }
+    .col-search-row input:focus { border-color: #0969da; }
+
+    .token-wrap { position: relative; }
+    .token-wrap textarea { padding-right: 60px; }
+    .btn-token-toggle {
+      position: absolute; top: 6px; right: 8px;
+      font-size: 10px; padding: 2px 8px;
+      border-radius: 4px; border: 1px solid #d0d7de;
+      background: #f6f8fa; color: #57606a; cursor: pointer;
+    }
+    .btn-token-toggle:hover { background: #eaeef2; }
+
+    .info-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: #57606a; background: #f6f8fa;
+      border: 1px solid #d0d7de; border-radius: 6px; padding: 6px 10px;
+    }
+    .info-row .label { font-weight: 600; color: #24292f; }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="#0969da">
+    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+  </svg>
+  <h1>GG Admin API Tester</h1>
+  <span class="subtitle">Admin Backend API Testing Tool</span>
+</header>
+
+<div class="layout">
+
+  <!-- ══════════════ LEFT PANEL ══════════════ -->
+  <div class="left">
+
+    <!-- API Selector Bar -->
+    <div class="api-bar">
+      <span class="method-badge get" id="methodBadge">GET</span>
+      <select id="apiSelect" onchange="onApiChange()"></select>
+      <span class="path-hint" id="pathHint"></span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="panel-tabs">
+      <div class="panel-tab active" data-tab="params">Params</div>
+      <div class="panel-tab" data-tab="auth">Auth / Config</div>
+    </div>
+
+    <!-- ── PARAMS TAB ── -->
+    <div class="tab-content active" id="tab-params">
+      <div id="dynamicFields"></div>
+    </div>
+
+    <!-- ── AUTH TAB ── -->
+    <div class="tab-content" id="tab-auth">
+
+      <div class="section-title">Endpoint</div>
+      <div class="field">
+        <label>Base URL <span class="req">*</span></label>
+        <input type="text" id="baseUrl" />
+      </div>
+
+      <hr class="divider" />
+      <div class="section-title">Authorization</div>
+      <div class="field">
+        <label>Bearer Token <span class="req">*</span></label>
+        <div class="token-wrap">
+          <textarea id="bearerToken" style="min-height:100px;font-size:10px;padding-right:64px"
+            placeholder="Paste your JWT token here (without 'Bearer ' prefix)"></textarea>
+          <button class="btn-token-toggle" onclick="toggleTokenView()">Decode</button>
+        </div>
+      </div>
+
+      <div id="tokenDecoded" style="display:none">
+        <hr class="divider" />
+        <div class="section-title">Token Payload</div>
+        <pre id="tokenPayload" style="font-size:11px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:10px;white-space:pre-wrap;word-break:break-all;color:#24292f;font-family:'Cascadia Code','Fira Code',monospace;max-height:180px;overflow-y:auto"></pre>
+      </div>
+
+      <hr class="divider" />
+      <div class="section-title">Extra Headers <span class="opt" style="margin-left:4px;font-size:10px">(optional)</span></div>
+      <p style="font-size:11px;color:#57606a;margin-bottom:4px">
+        One per line: <code class="inline">Header-Name: value</code>
+      </p>
+      <textarea id="extraHeaders" placeholder="X-Debug: true&#10;X-Custom: value" style="min-height:80px"></textarea>
+
+    </div>
+
+    <button class="btn-send" id="btnSend" onclick="sendRequest()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M.5 1.163A1 1 0 0 1 1.97.28l12.868 6.837a1 1 0 0 1 0 1.766L1.969 15.72A1 1 0 0 1 .5 14.836V10.33a1 1 0 0 1 .816-.983L8.5 8 1.316 6.653A1 1 0 0 1 .5 5.67V1.163Z"/>
+      </svg>
+      Send Request
+    </button>
+
+  </div>
+
+  <!-- ══════════════ RIGHT PANEL ══════════════ -->
+  <div class="right">
+    <div class="resp-header">
+      <span>Response</span>
+      <span class="status-badge" id="statusBadge"></span>
+      <span class="elapsed" id="elapsed"></span>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="clearResponse()" style="margin-right:4px">Clear</button>
+      <button class="btn" onclick="copyResponse()">Copy</button>
+    </div>
+    <div class="resp-toolbar">
+      <span id="respMeta">— No request sent yet —</span>
+      <span class="array-path-badge" id="arrayPathBadge"></span>
+      <div style="flex:1"></div>
+      <div class="view-toggle" id="viewToggle">
+        <button class="view-btn active" id="btnViewJson" onclick="switchView('json')">JSON</button>
+        <button class="view-btn" id="btnViewTable" onclick="switchView('table')">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-1px;margin-right:3px"><path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm15 2h-4v3h4V4zm0 4h-4v3h4V8zm0 4h-4v3h3a1 1 0 0 0 1-1v-2zm-5 3v-3H6v3h4zm-5 0v-3H1v2a1 1 0 0 0 1 1h3zm-4-4h4V8H1v3zm0-4h4V4H1v3zm5-3v3h4V4H6zm4 4H6v3h4V8z"/></svg>Table
+        </button>
+      </div>
+    </div>
+    <div class="resp-body" id="respBody">
+      <pre id="responseOutput"><div class="empty-state"><div class="icon">📡</div>Select an API, fill in the parameters, and hit Send.</div></pre>
+      <div id="tableWrapper">
+        <table class="resp-table" id="respTable">
+          <thead><tr id="tableHead"></tr><tr class="col-search-row" id="colSearchRow"></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="table-footer" id="tableFooter" style="display:none"></div>
+    <div class="req-log" id="reqLogWrapper" style="display:none">
+      <div class="req-log-title">Request Detail</div>
+      <pre id="reqLog"></pre>
+    </div>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script>
+// Config is loaded from config.js (window.APP_CONFIG).
+// Edit config.js to change endpoints, auth defaults, and APIs.
+const API_REGISTRY = (window.APP_CONFIG && window.APP_CONFIG.apis) || [];
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+let currentApi = null;
+let lastParsed = null;        // last parsed JSON response
+let tableData  = null;        // { rows: [...], path: 'a.b.c' }
+let sortState  = { col: null, dir: 'asc' };
+let filterVals = {};          // col -> filter string
+
+function init() {
+  const select = document.getElementById('apiSelect');
+  API_REGISTRY.forEach(api => {
+    const opt = document.createElement('option');
+    opt.value = api.id;
+    opt.textContent = api.name;
+    select.appendChild(opt);
+  });
+  onApiChange();
+  loadSavedAuth();
+
+  // Tab switching
+  document.querySelectorAll('.panel-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + target).classList.add('active');
+    });
+  });
+}
+
+function onApiChange() {
+  const id = document.getElementById('apiSelect').value;
+  currentApi = API_REGISTRY.find(a => a.id === id);
+  if (!currentApi) return;
+
+  // Update method badge
+  const badge = document.getElementById('methodBadge');
+  badge.textContent = currentApi.method;
+  badge.className = 'method-badge ' + currentApi.method.toLowerCase();
+
+  // Update path hint
+  document.getElementById('pathHint').textContent = currentApi.path;
+
+  // Render dynamic fields
+  renderFields(currentApi);
+}
+
+function renderFields(api) {
+  const container = document.getElementById('dynamicFields');
+  container.innerHTML = '';
+
+  if (!api.params || api.params.length === 0) {
+    container.innerHTML = '<p style="font-size:12px;color:#8c959f;padding:8px 0">No parameters for this API.</p>';
+    return;
+  }
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'section-title';
+  titleEl.textContent = 'Query Parameters';
+  container.appendChild(titleEl);
+
+  api.params.forEach(p => {
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.style.marginTop = '6px';
+
+    const lbl = document.createElement('label');
+    lbl.innerHTML = `${p.label} <span class="${p.required ? 'req' : 'opt'}">${p.required ? '*' : '(opt)'}</span>`;
+    field.appendChild(lbl);
+
+    let input;
+
+    if (p.type === 'boolean') {
+      const row = document.createElement('div');
+      row.className = 'checkbox-row';
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.id = 'param_' + p.key;
+      input.checked = p.default === true;
+      const cbLabel = document.createElement('label');
+      cbLabel.htmlFor = 'param_' + p.key;
+      cbLabel.textContent = 'true';
+      cbLabel.style.border = 'none';
+      row.appendChild(input);
+      row.appendChild(cbLabel);
+      field.appendChild(row);
+    } else if (p.type === 'select') {
+      input = document.createElement('select');
+      input.className = 'form-select';
+      input.id = 'param_' + p.key;
+      (p.options || []).forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (opt.value === p.default) o.selected = true;
+        input.appendChild(o);
+      });
+      field.appendChild(input);
+    } else {
+      input = document.createElement('input');
+      input.type = p.type === 'number' ? 'number' : (p.type === 'date' ? 'date' : 'text');
+      input.id = 'param_' + p.key;
+      input.value = p.default !== undefined ? p.default : '';
+      if (p.placeholder) input.placeholder = p.placeholder;
+      if (p.min !== undefined) input.min = p.min;
+      if (p.max !== undefined) input.max = p.max;
+      field.appendChild(input);
+    }
+
+    container.appendChild(field);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BUILD & SEND REQUEST
+// ═══════════════════════════════════════════════════════════════
+async function sendRequest() {
+  if (!currentApi) return;
+
+  const baseUrl = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+  const token = document.getElementById('bearerToken').value.trim();
+
+  // Build query params
+  const qp = new URLSearchParams();
+  for (const p of currentApi.params) {
+    const el = document.getElementById('param_' + p.key);
+    if (!el) continue;
+    let val;
+    if (p.type === 'boolean') {
+      val = el.checked ? 'true' : 'false';
+    } else {
+      val = el.value.trim();
+    }
+    if (val !== '') qp.set(p.key, val);
+  }
+
+  const url = baseUrl + currentApi.path + (qp.toString() ? '?' + qp.toString() : '');
+
+  // Build headers — start with config defaults, then auth, then extras
+  const headers = Object.assign({ 'accept': 'text/plain' }, (window.APP_CONFIG && window.APP_CONFIG.defaultHeaders) || {});
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+
+  const extraRaw = document.getElementById('extraHeaders').value.trim();
+  if (extraRaw) {
+    extraRaw.split('\n').forEach(line => {
+      const idx = line.indexOf(':');
+      if (idx > 0) {
+        const k = line.slice(0, idx).trim();
+        const v = line.slice(idx + 1).trim();
+        if (k) headers[k] = v;
+      }
+    });
+  }
+
+  // Log request detail
+  const reqDetail = `${currentApi.method} ${url}\n\nHeaders:\n${Object.entries(headers).map(([k,v]) => `  ${k}: ${k.toLowerCase() === 'authorization' ? v.slice(0,30) + '…' : v}`).join('\n')}`;
+  document.getElementById('reqLog').textContent = reqDetail;
+  document.getElementById('reqLogWrapper').style.display = 'block';
+
+  // UI: loading state
+  const btn = document.getElementById('btnSend');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sending…';
+  document.getElementById('statusBadge').className = 'status-badge';
+  document.getElementById('statusBadge').textContent = '';
+  document.getElementById('elapsed').textContent = '';
+  document.getElementById('respMeta').textContent = 'Sending…';
+  document.getElementById('responseOutput').innerHTML = '';
+
+  const t0 = performance.now();
+
+  try {
+    const res = await fetch(url, {
+      method: currentApi.method,
+      headers,
+      body: currentApi.method !== 'GET' && currentApi.method !== 'HEAD'
+        ? buildBody()
+        : undefined
+    });
+
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2) + 's';
+    const contentType = res.headers.get('content-type') || '';
+    const text = await res.text();
+
+    // Status badge
+    const badge = document.getElementById('statusBadge');
+    badge.textContent = res.status + ' ' + res.statusText;
+    badge.className = 'status-badge ' + (res.ok ? 'ok' : 'err');
+
+    document.getElementById('elapsed').textContent = elapsed;
+    document.getElementById('respMeta').textContent =
+      `${res.status} · ${elapsed} · ${(text.length / 1024).toFixed(1)} KB`;
+
+    // Try to parse + colorize JSON
+    const out = document.getElementById('responseOutput');
+    lastParsed = null;
+    tableData  = null;
+    if (contentType.includes('json') || looksLikeJson(text)) {
+      try {
+        const parsed = JSON.parse(text);
+        lastParsed = parsed;
+        out.innerHTML = colorizeJson(JSON.stringify(parsed, null, 2));
+        detectAndEnableTable(parsed);
+      } catch {
+        out.textContent = text;
+        hideTableToggle();
+      }
+    } else {
+      out.textContent = text;
+      hideTableToggle();
+    }
+
+  } catch (err) {
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2) + 's';
+    const badge = document.getElementById('statusBadge');
+    badge.textContent = 'Network Error';
+    badge.className = 'status-badge err';
+    document.getElementById('elapsed').textContent = elapsed;
+    document.getElementById('respMeta').textContent = 'Request failed';
+    document.getElementById('responseOutput').textContent =
+      'Error: ' + err.message + '\n\nNote: If this is a CORS error, try running the page via a local server or use a CORS proxy.';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 1.163A1 1 0 0 1 1.97.28l12.868 6.837a1 1 0 0 1 0 1.766L1.969 15.72A1 1 0 0 1 .5 14.836V10.33a1 1 0 0 1 .816-.983L8.5 8 1.316 6.653A1 1 0 0 1 .5 5.67V1.163Z"/></svg> Send Request`;
+  }
+
+  saveAuth();
+}
+
+function buildBody() {
+  // For POST/PUT APIs — override in each API definition as needed
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function looksLikeJson(s) {
+  const t = s.trim();
+  return (t.startsWith('{') || t.startsWith('['));
+}
+
+function colorizeJson(json) {
+  return json
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+      if (/^"/.test(match)) {
+        return match.endsWith(':')
+          ? `<span class="json-key">${match}</span>`
+          : `<span class="json-str">${match}</span>`;
+      }
+      if (/true|false/.test(match)) return `<span class="json-bool">${match}</span>`;
+      if (/null/.test(match))       return `<span class="json-null">${match}</span>`;
+      return `<span class="json-num">${match}</span>`;
+    });
+}
+
+function clearResponse() {
+  document.getElementById('responseOutput').innerHTML =
+    '<div class="empty-state"><div class="icon">📡</div>Select an API, fill in the parameters, and hit Send.</div>';
+  document.getElementById('statusBadge').className = 'status-badge';
+  document.getElementById('statusBadge').textContent = '';
+  document.getElementById('elapsed').textContent = '';
+  document.getElementById('respMeta').textContent = '— No request sent yet —';
+  document.getElementById('reqLogWrapper').style.display = 'none';
+  lastParsed = null; tableData = null;
+  hideTableToggle();
+  switchView('json');
+}
+
+function copyResponse() {
+  const text = document.getElementById('responseOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+// ── Token decode ──
+function toggleTokenView() {
+  const btn = document.querySelector('.btn-token-toggle');
+  const decoded = document.getElementById('tokenDecoded');
+  const payload = document.getElementById('tokenPayload');
+
+  if (decoded.style.display === 'none') {
+    const token = document.getElementById('bearerToken').value.trim();
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) throw new Error('Not a valid JWT (expected 3 parts)');
+      const p = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+      // Annotate exp/nbf/iat
+      const now = Math.floor(Date.now() / 1000);
+      const annotated = {};
+      for (const [k, v] of Object.entries(p)) {
+        if (['exp','nbf','iat','re'].includes(k) && typeof v === 'number') {
+          annotated[k] = v + '  ← ' + new Date(v * 1000).toISOString() +
+            (k === 'exp' ? (v < now ? '  ⚠ EXPIRED' : '  ✓ valid') : '');
+        } else {
+          annotated[k] = v;
+        }
+      }
+      payload.textContent = JSON.stringify(annotated, null, 2);
+      decoded.style.display = 'block';
+      btn.textContent = 'Hide';
+    } catch(e) {
+      payload.textContent = 'Error: ' + e.message;
+      decoded.style.display = 'block';
+      btn.textContent = 'Hide';
+    }
+  } else {
+    decoded.style.display = 'none';
+    btn.textContent = 'Decode';
+  }
+}
+
+// ── Persist auth to localStorage ──
+function saveAuth() {
+  localStorage.setItem('gg_admin_baseUrl', document.getElementById('baseUrl').value);
+  localStorage.setItem('gg_admin_token', document.getElementById('bearerToken').value);
+  localStorage.setItem('gg_admin_extraHeaders', document.getElementById('extraHeaders').value);
+}
+
+function defaultHeadersToText(headers) {
+  if (!headers || typeof headers !== 'object') return '';
+  return Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join('\n');
+}
+
+function loadSavedAuth() {
+  const cfg = window.APP_CONFIG || {};
+  const url   = localStorage.getItem('gg_admin_baseUrl')      || cfg.defaultBaseUrl     || '';
+  const token = localStorage.getItem('gg_admin_token')        || cfg.defaultBearerToken || '';
+  const extra = localStorage.getItem('gg_admin_extraHeaders') ?? defaultHeadersToText(cfg.defaultHeaders);
+  document.getElementById('baseUrl').value      = url;
+  document.getElementById('bearerToken').value  = token;
+  document.getElementById('extraHeaders').value = extra;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TABLE VIEW
+// ═══════════════════════════════════════════════════════════════
+
+/** Walk the parsed object to find the best (largest) array of objects. */
+function findBestArray(obj, path = '') {
+  if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
+    return { arr: obj, path: path || '(root)' };
+  }
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    let best = null;
+    for (const [k, v] of Object.entries(obj)) {
+      const found = findBestArray(v, path ? path + '.' + k : k);
+      if (found && (!best || found.arr.length > best.arr.length)) best = found;
+    }
+    return best;
+  }
+  return null;
+}
+
+function detectAndEnableTable(parsed) {
+  const found = findBestArray(parsed);
+  if (!found || found.arr.length === 0) { hideTableToggle(); return; }
+
+  tableData = found;
+  sortState = { col: null, dir: 'asc' };
+  filterVals = {};
+
+  document.getElementById('viewToggle').classList.add('visible');
+  const badge = document.getElementById('arrayPathBadge');
+  badge.textContent = found.path + '  [' + found.arr.length + ']';
+  badge.classList.add('visible');
+}
+
+function hideTableToggle() {
+  document.getElementById('viewToggle').classList.remove('visible');
+  document.getElementById('arrayPathBadge').classList.remove('visible');
+  document.getElementById('tableFooter').style.display = 'none';
+}
+
+function switchView(mode) {
+  const pre = document.getElementById('responseOutput');
+  const tw  = document.getElementById('tableWrapper');
+  const bjson  = document.getElementById('btnViewJson');
+  const btable = document.getElementById('btnViewTable');
+
+  if (mode === 'table') {
+    pre.classList.add('hidden');
+    tw.classList.add('active');
+    bjson.classList.remove('active');
+    btable.classList.add('active');
+    renderTableView();
+  } else {
+    pre.classList.remove('hidden');
+    tw.classList.remove('active');
+    bjson.classList.add('active');
+    btable.classList.remove('active');
+    document.getElementById('tableFooter').style.display = 'none';
+  }
+}
+
+/** Collect all unique keys from all rows (flattened one level). */
+function getColumns(rows) {
+  const seen = new Set();
+  rows.forEach(row => {
+    if (row && typeof row === 'object') Object.keys(row).forEach(k => seen.add(k));
+  });
+  return [...seen];
+}
+
+function renderTableView() {
+  if (!tableData) return;
+
+  const { arr } = tableData;
+  const cols = getColumns(arr);
+
+  // ── Header ──
+  const head = document.getElementById('tableHead');
+  head.innerHTML = '';
+  cols.forEach((col, i) => {
+    const th = document.createElement('th');
+    th.dataset.col = col;
+    th.innerHTML = `${escHtml(col)}<span class="sort-icon"></span>`;
+    th.addEventListener('click', () => toggleSort(col));
+    if (sortState.col === col) th.classList.add('sort-' + sortState.dir);
+    head.appendChild(th);
+  });
+
+  // ── Column filter row ──
+  const filterRow = document.getElementById('colSearchRow');
+  filterRow.innerHTML = '';
+  filterRow.classList.add('visible');
+  cols.forEach(col => {
+    const td = document.createElement('td');
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = '🔍';
+    inp.value = filterVals[col] || '';
+    inp.addEventListener('input', e => {
+      filterVals[col] = e.target.value;
+      renderRows(cols, arr);
+    });
+    td.appendChild(inp);
+    filterRow.appendChild(td);
+  });
+
+  renderRows(cols, arr);
+}
+
+function renderRows(cols, rawRows) {
+  // Filter
+  let rows = rawRows.filter(row => {
+    return cols.every(col => {
+      const f = (filterVals[col] || '').toLowerCase();
+      if (!f) return true;
+      const v = row[col];
+      return String(v == null ? '' : v).toLowerCase().includes(f);
+    });
+  });
+
+  // Sort
+  if (sortState.col !== null) {
+    const col = sortState.col;
+    rows = [...rows].sort((a, b) => {
+      const av = a[col], bv = b[col];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      const n = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av).localeCompare(String(bv), undefined, { numeric: true });
+      return sortState.dir === 'asc' ? n : -n;
+    });
+  }
+
+  // Render body
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    cols.forEach(col => {
+      const td = document.createElement('td');
+      const v = row[col];
+      if (v === null || v === undefined) {
+        td.textContent = 'null';
+        td.className = 'td-null';
+      } else if (typeof v === 'boolean') {
+        td.textContent = String(v);
+        td.className = v ? 'td-bool-t' : 'td-bool-f';
+      } else if (typeof v === 'number') {
+        td.textContent = v;
+        td.className = 'td-num';
+      } else if (typeof v === 'object') {
+        const s = JSON.stringify(v);
+        td.textContent = s.length > 40 ? s.slice(0, 40) + '…' : s;
+        td.className = 'td-obj';
+        td.title = JSON.stringify(v, null, 2);
+      } else {
+        const s = String(v);
+        td.textContent = s.length > 60 ? s.slice(0, 60) + '…' : s;
+        if (s.length > 60) td.title = s;
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  // Update sort icons
+  document.querySelectorAll('#tableHead th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (th.dataset.col === sortState.col) th.classList.add('sort-' + sortState.dir);
+  });
+
+  // Footer
+  const footer = document.getElementById('tableFooter');
+  footer.style.display = 'block';
+  footer.textContent = `${rows.length} of ${tableData.arr.length} rows · ${cols.length} columns`;
+}
+
+function toggleSort(col) {
+  if (sortState.col === col) {
+    sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortState.col = col;
+    sortState.dir = 'asc';
+  }
+  const cols = getColumns(tableData.arr);
+  renderRows(cols, tableData.arr);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Boot ──
+init();
+</script>
+</body>
+</html>
