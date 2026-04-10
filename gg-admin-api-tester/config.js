@@ -28,8 +28,8 @@ window.APP_CONFIG = {
       method: "GET",
       path:   "/api/v1/asset/report/userbonusactivityv2",
       params: [
-        { key: "IssuanceDateBegin", label: "Issuance Date Begin", type: "date",    required: true,  default: "2026-03-01" },
-        { key: "IssuanceDateEnd",   label: "Issuance Date End",   type: "date",    required: true,  default: "2026-03-14" },
+        { key: "IssuanceDateBegin", label: "Issuance Date Begin", type: "date",    required: true,  default: (() => { const d = new Date(); d.setDate(d.getDate() - 14); return d.toISOString().slice(0, 10); })() },
+        { key: "IssuanceDateEnd",   label: "Issuance Date End",   type: "date",    required: true,  default: new Date().toISOString().slice(0, 10) },
         { key: "HasTest",           label: "Has Test",            type: "boolean", required: false, default: false },
         { key: "Page",              label: "Page",                type: "number",  required: true,  default: 1,   min: 1 },
         { key: "PageSize",          label: "Page Size",           type: "number",  required: true,  default: 100, min: 1, max: 1000 }
