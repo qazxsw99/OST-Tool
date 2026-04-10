@@ -10,6 +10,7 @@
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
       font-size: 13px;
+      line-height: 1.0;
       background: #f6f8fa;
       color: #24292f;
       height: 100vh;
@@ -483,7 +484,7 @@
       <hr class="divider" />
       <div class="section-title">Authorization</div>
       <div class="field">
-        <label>Bearer Token <span class="req">*</span></label>
+        <label>Bearer Token <span class="opt">(or use credentials below)</span></label>
         <div class="token-wrap">
           <textarea id="bearerToken" style="min-height:100px;font-size:10px;padding-right:64px"
             placeholder="Paste your JWT token here (without 'Bearer ' prefix)"></textarea>
@@ -495,6 +496,20 @@
         <hr class="divider" />
         <div class="section-title">Token Payload</div>
         <pre id="tokenPayload" style="font-size:11px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:10px;white-space:pre-wrap;word-break:break-all;color:#24292f;font-family:'Cascadia Code','Fira Code',monospace;max-height:180px;overflow-y:auto"></pre>
+      </div>
+
+      <hr class="divider" />
+      <div class="section-title">Login Credentials <span class="opt" style="margin-left:4px;font-size:10px">(or use token above)</span></div>
+      <div class="info-row" style="margin-bottom:2px">
+        <span>If filled, auto-login runs before each request and refreshes the token automatically.</span>
+      </div>
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="loginUsername" placeholder="e.g. Super002" autocomplete="username" oninput="saveAuth()" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="Your password" autocomplete="current-password" />
       </div>
 
       <hr class="divider" />
@@ -530,7 +545,7 @@
       <span class="elapsed" id="elapsed"></span>
       <div style="flex:1"></div>
       <button class="btn" id="btnResend" onclick="sendRequest()" style="margin-right:4px" disabled>Resend</button>
-      <button class="btn" onclick="clearResponse()" style="margin-right:4px">Clear</button>
+      <button class="btn btn-danger" onclick="clearResponse()" style="margin-right:4px">Clear</button>
       <button class="btn" onclick="copyResponse()">Copy</button>
     </div>
     <div class="resp-toolbar">
@@ -545,7 +560,7 @@
       </div>
     </div>
     <div class="resp-body" id="respBody">
-      <pre id="responseOutput"><div class="empty-state"><div class="icon">📡</div>Select an API, fill in the parameters, and hit Send.</div></pre>
+      <pre id="responseOutput"><div class="empty-state"><div class="icon">📭</div>No response yet. Send a request to see results here.</div></pre>
       <div id="tableWrapper">
         <table class="resp-table" id="respTable">
           <thead><tr id="tableHead"></tr><tr class="col-search-row" id="colSearchRow"></tr></thead>
@@ -690,13 +705,140 @@ function renderFields(api) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// AUTO-LOGIN  (AES-128 ECB + PKCS7, matches frontend CryptoJS impl)
+// ═══════════════════════════════════════════════════════════════
+
+/** AES-128 ECB encrypt → Base64.  Uses SubtleCrypto (no external deps).
+ *  ECB is simulated by encrypting each 16-byte padded block individually
+ *  via AES-CBC with a zero IV, then taking the first 16 bytes of each output. */
+async function aesEcbEncryptBase64(plaintext, keyStr) {
+  const enc = new TextEncoder();
+  const keyBytes = enc.encode(keyStr);          // 16 bytes → AES-128
+  const ptBytes  = enc.encode(plaintext);
+
+  // PKCS7 pad to multiple of 16
+  const padLen = 16 - (ptBytes.length % 16);
+  const padded = new Uint8Array(ptBytes.length + padLen);
+  padded.set(ptBytes);
+  for (let i = ptBytes.length; i < padded.length; i++) padded[i] = padLen;
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']
+  );
+  const zeroIv = new Uint8Array(16);
+
+  // Encrypt each block with IV=0 → first 16 bytes = AES-ECB(block)
+  const cipher = new Uint8Array(padded.length);
+  for (let i = 0; i < padded.length; i += 16) {
+    const block = padded.slice(i, i + 16);
+    const out = await crypto.subtle.encrypt({ name: 'AES-CBC', iv: zeroIv }, cryptoKey, block);
+    cipher.set(new Uint8Array(out, 0, 16), i);
+  }
+
+  return btoa(String.fromCharCode(...cipher));
+}
+
+/** Decode a JWT and return its payload object, or null on failure. */
+function parseJwtPayload(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+  } catch { return null; }
+}
+
+/** Return true if the token is not expired (30 s buffer) AND belongs to the given username. */
+function isTokenValidForUser(token, username) {
+  const p = parseJwtPayload(token);
+  if (!p) return false;
+  const now = Math.floor(Date.now() / 1000);
+  if (p.exp && p.exp - now < 30) return false;        // expired or about to expire
+  // Check common JWT username claim names (try case-insensitive)
+  const tokenUser = (p.sub || p.username || p.userName || p.name || p.unique_name || '').toLowerCase();
+  return tokenUser === username.toLowerCase();
+}
+
+async function performAutoLogin(baseUrl, username, password, useCorsProxy, proxyBase) {
+  const proxy = url => useCorsProxy ? proxyBase + '/?' + encodeURIComponent(url) : url;
+  const authHeaders = {
+    'Content-Type': 'application/json;charset=utf-8',
+    'lang': 'zh-cn',
+  };
+
+  // Step 1: get encryption key
+  const keyResp = await fetch(proxy(baseUrl + '/api/v1/admin/auth/getpasswordencryptkey'), { headers: authHeaders });
+  if (!keyResp.ok) throw new Error('getpasswordencryptkey returned ' + keyResp.status);
+  const keyData = await keyResp.json();
+
+  // Step 2: encrypt password (AES-128 ECB + PKCS7, Base64 output)
+  const encryptedPwd = await aesEcbEncryptBase64(password, keyData.encyptKey);
+
+  // Step 3: login
+  const loginResp = await fetch(proxy(baseUrl + '/api/v1/admin/auth/login'), {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      tenantId: 1,
+      userName: username,
+      password: encryptedPwd,
+      passwordKey: keyData.key,
+    })
+  });
+  if (!loginResp.ok) throw new Error('login returned ' + loginResp.status);
+  const loginData = await loginResp.json();
+
+  const token = loginData.token || (loginData.data && loginData.data.token);
+  if (!token) throw new Error('No token in login response: ' + JSON.stringify(loginData).slice(0, 300));
+  return token;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // BUILD & SEND REQUEST
 // ═══════════════════════════════════════════════════════════════
 async function sendRequest() {
   if (!currentApi) return;
 
-  const baseUrl = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
-  const token = document.getElementById('bearerToken').value.trim();
+  const baseUrl  = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+  const username = document.getElementById('loginUsername').value.trim();
+  const loginPwd = document.getElementById('loginPassword').value.trim();
+  let   token    = document.getElementById('bearerToken').value.trim();
+
+  // Validation: need either token OR credentials
+  if (!token && (!username || !loginPwd)) {
+    document.getElementById('responseOutput').textContent =
+      'Auth required: fill in either Bearer Token or Username + Password in the Auth / Config tab.';
+    document.getElementById('statusBadge').textContent = 'Auth Error';
+    document.getElementById('statusBadge').className   = 'status-badge err';
+    document.getElementById('respMeta').textContent    = 'Missing authentication';
+    return;
+  }
+
+  // Auto-login if credentials are provided (skip if existing token is still valid for this user)
+  if (username && loginPwd && !isTokenValidForUser(token, username)) {
+    const btn = document.getElementById('btnSend');
+    btn.disabled   = true;
+    btn.innerHTML  = '<span class="spinner"></span> Logging in…';
+    document.getElementById('respMeta').textContent = 'Authenticating…';
+    document.getElementById('statusBadge').className = 'status-badge';
+    document.getElementById('statusBadge').textContent = '';
+    const useCorsProxy = document.getElementById('corsProxy').checked;
+    const proxyBase    = (document.getElementById('corsProxyUrl').value.trim().replace(/\/$/, '')) || 'http://127.0.0.1:3009';
+    try {
+      token = await performAutoLogin(baseUrl, username, loginPwd, useCorsProxy, proxyBase);
+      document.getElementById('bearerToken').value = token;
+      saveAuth();
+    } catch (e) {
+      btn.disabled  = false;
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 1.163A1 1 0 0 1 1.97.28l12.868 6.837a1 1 0 0 1 0 1.766L1.969 15.72A1 1 0 0 1 .5 14.836V10.33a1 1 0 0 1 .816-.983L8.5 8 1.316 6.653A1 1 0 0 1 .5 5.67V1.163Z"/></svg> Send Request`;
+      document.getElementById('responseOutput').textContent = 'Auto-login failed: ' + e.message;
+      document.getElementById('statusBadge').textContent    = 'Login Error';
+      document.getElementById('statusBadge').className      = 'status-badge err';
+      document.getElementById('respMeta').textContent       = 'Login failed';
+      document.getElementById('reqLogWrapper').style.display = 'none';
+      document.getElementById('btnResend').disabled = false;
+      return;
+    }
+  }
 
   // Build query params
   const qp = new URLSearchParams();
@@ -734,7 +876,7 @@ async function sendRequest() {
   }
 
   // Log request detail
-  const reqDetail = `${currentApi.method} ${url}\n\nHeaders:\n${Object.entries(headers).map(([k,v]) => `  ${k}: ${k.toLowerCase() === 'authorization' ? v.slice(0,30) + '…' : v}`).join('\n')}`;
+  const reqDetail = `${currentApi.method} ${url}\n\nHeaders:\n${Object.entries(headers).map(([k,v]) => `  ${k}: ${k.toLowerCase() === 'authorization' ? 'Bearer ***' : v}`).join('\n')}`;
   document.getElementById('reqLog').textContent = reqDetail;
   document.getElementById('reqLogWrapper').style.display = 'block';
 
@@ -846,7 +988,7 @@ function colorizeJson(json) {
 
 function clearResponse() {
   document.getElementById('responseOutput').innerHTML =
-    '<div class="empty-state"><div class="icon">📡</div>Select an API, fill in the parameters, and hit Send.</div>';
+    '<div class="empty-state"><div class="icon">📭</div>No response yet. Send a request to see results here.</div>';
   document.getElementById('statusBadge').className = 'status-badge';
   document.getElementById('statusBadge').textContent = '';
   document.getElementById('elapsed').textContent = '';
@@ -947,6 +1089,7 @@ function saveAuth() {
   localStorage.setItem('gg_admin_extraHeaders', document.getElementById('extraHeaders').value);
   localStorage.setItem('gg_admin_corsProxy', document.getElementById('corsProxy').checked ? '1' : '');
   localStorage.setItem('gg_admin_corsProxyUrl', document.getElementById('corsProxyUrl').value);
+  localStorage.setItem('gg_admin_loginUsername', document.getElementById('loginUsername').value);
 }
 
 function onCorsProxyToggle() {
@@ -972,6 +1115,7 @@ function loadSavedAuth() {
   document.getElementById('corsProxy').checked  = corsEnabled;
   document.getElementById('corsProxyUrl').value = localStorage.getItem('gg_admin_corsProxyUrl') || 'http://127.0.0.1:3009';
   document.getElementById('corsProxyUrlField').style.display = corsEnabled ? '' : 'none';
+  document.getElementById('loginUsername').value = localStorage.getItem('gg_admin_loginUsername') || '';
 }
 
 // ═══════════════════════════════════════════════════════════════
