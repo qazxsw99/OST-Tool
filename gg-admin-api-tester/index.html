@@ -545,7 +545,7 @@
       <span class="status-badge" id="statusBadge"></span>
       <span class="elapsed" id="elapsed"></span>
       <div style="flex:1"></div>
-      <button class="btn" id="btnResend" onclick="sendRequest()" style="margin-right:4px" disabled>Resend</button>
+      <button class="btn" id="btnResend" onclick="resendRequest()" style="margin-right:4px" disabled>Resend</button>
       <button class="btn btn-danger" onclick="clearResponse()" style="margin-right:4px">Clear</button>
       <button class="btn" onclick="copyResponse()">Copy</button>
     </div>
@@ -985,6 +985,11 @@ function colorizeJson(json) {
       if (/null/.test(match))       return `<span class="json-null">${match}</span>`;
       return `<span class="json-num">${match}</span>`;
     });
+}
+
+function resendRequest() {
+  clearResponse();
+  sendRequest();
 }
 
 function clearResponse() {
