@@ -2,6 +2,9 @@
 // Edit this file to update endpoints, auth defaults, and add new APIs.
 // Do NOT wrap values in extra quotes — this is a JS object literal (JSON-compatible).
 
+// Returns "YYYY-MM-DD" for today offset by n days (negative = past)
+const _relDate = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+
 window.APP_CONFIG = {
 
   // ── Environments ──────────────────────────────────────────────
@@ -39,10 +42,10 @@ window.APP_CONFIG = {
       method: "GET",
       path:   "/api/v1/asset/report/userbonusactivityv2",
       params: [
-        { key: "IssuanceDateBegin",    label: "Issuance Date Begin",        type: "date",    required: true,  default: "2026-03-01" },
-        { key: "IssuanceDateEnd",      label: "Issuance Date End",          type: "date",    required: true,  default: "2026-03-14" },
-        { key: "RedeemDateBegin",      label: "Redeem Date Begin",          type: "date",    required: false, default: "" },
-        { key: "RedeemDateEnd",        label: "Redeem Date End",            type: "date",    required: false, default: "" },
+        { key: "IssuanceDateBegin",    label: "Issuance Date Begin",        type: "date",    required: true,  default: "" },
+        { key: "IssuanceDateEnd",      label: "Issuance Date End",          type: "date",    required: true,  default: "" },
+        { key: "RedeemDateBegin",      label: "Redeem Date Begin",          type: "date",    required: false, default: _relDate(-2) },
+        { key: "RedeemDateEnd",        label: "Redeem Date End",            type: "date",    required: false, default: _relDate(0) },
         { key: "ExpiryDateBegin",      label: "Expiry Date Begin",          type: "date",    required: false, default: "" },
         { key: "ExpiryDateEnd",        label: "Expiry Date End",            type: "date",    required: false, default: "" },
         { key: "BwTransferMwDateBegin",label: "BW Transfer MW Date Begin",  type: "date",    required: false, default: "" },
