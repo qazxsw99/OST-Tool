@@ -645,6 +645,32 @@ function onEnvChange() {
   saveAuth();
 }
 
+// ── AES-128 ECB encrypt → Base64 (SubtleCrypto, no external deps) ──
+// ECB is simulated: encrypt each 16-byte PKCS7-padded block via AES-CBC with
+// a zero IV, then keep only the first 16 bytes of each output block.
+async function aesEcbEncryptBase64(plaintext, keyStr) {
+  const enc      = new TextEncoder();
+  const keyBytes = enc.encode(keyStr);   // 16 bytes → AES-128
+  const ptBytes  = enc.encode(plaintext);
+  const padLen   = 16 - (ptBytes.length % 16);
+  const padded   = new Uint8Array(ptBytes.length + padLen);
+  padded.set(ptBytes);
+  for (let i = ptBytes.length; i < padded.length; i++) padded[i] = padLen;
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']
+  );
+  const zeroIv = new Uint8Array(16);
+  const cipher = new Uint8Array(padded.length);
+  for (let i = 0; i < padded.length; i += 16) {
+    const out = await crypto.subtle.encrypt(
+      { name: 'AES-CBC', iv: zeroIv }, cryptoKey, padded.slice(i, i + 16)
+    );
+    cipher.set(new Uint8Array(out, 0, 16), i);
+  }
+  return btoa(String.fromCharCode(...cipher));
+}
+
 // ── Login via credentials ────────────────────────────────────────
 async function doLogin() {
   const baseUrl  = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
@@ -669,24 +695,31 @@ async function doLogin() {
     const keyUrl  = applyProxy(`${baseUrl}/api/v1/admin/auth/getpasswordencryptkey`);
     const keyRes  = await fetch(keyUrl, { method: 'GET', headers: defaultHdrs });
     const keyData = await keyRes.json();
-    const passwordKey = keyData && keyData.key ? keyData.key : null;
 
-    // Step 2: login (route through CORS proxy if enabled)
-    const loginRawUrl = `${baseUrl}/api/v1/admin/auth/login`;
-    const body = JSON.stringify({ userName: username, password, passwordKey: passwordKey || '' });
-    const loginRes = await fetch(applyProxy(loginRawUrl), {
+    // Step 2: AES-128 ECB encrypt the password using the returned encyptKey
+    // Note: API field is "encyptKey" (typo in the upstream API, not ours)
+    const encryptedPwd = await aesEcbEncryptBase64(password, keyData.encyptKey);
+
+    // Step 3: login (route through CORS proxy if enabled)
+    const loginRes = await fetch(applyProxy(`${baseUrl}/api/v1/admin/auth/login`), {
       method: 'POST',
-      headers: Object.assign({ 'Content-Type': 'application/json', 'accept': 'application/json' }, defaultHdrs),
-      body
+      headers: Object.assign({ 'Content-Type': 'application/json;charset=utf-8', 'accept': 'application/json' }, defaultHdrs),
+      body: JSON.stringify({
+        tenantId:    1,
+        userName:    username,
+        password:    encryptedPwd,
+        passwordKey: keyData.key,
+      })
     });
     const loginData = await loginRes.json();
 
-    if (!loginRes.ok || !loginData.token) {
+    const token = loginData.token || (loginData.data && loginData.data.token);
+    if (!loginRes.ok || !token) {
       showLoginMsg('Login failed: ' + (loginData.title || loginData.message || loginRes.status), 'err');
       return;
     }
 
-    document.getElementById('bearerToken').value = loginData.token;
+    document.getElementById('bearerToken').value = token;
     saveAuth();
     showLoginMsg('✓ Token obtained successfully', 'ok');
 
