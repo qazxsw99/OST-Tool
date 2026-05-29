@@ -493,7 +493,8 @@
         <label>Bearer Token <span class="req">*</span></label>
         <div class="token-wrap">
           <textarea id="bearerToken" style="min-height:100px;font-size:10px;padding-right:64px"
-            placeholder="Paste your JWT token here (without 'Bearer ' prefix)"></textarea>
+            placeholder="Paste your JWT token here (without 'Bearer ' prefix)"
+            oninput="onTokenInput()"></textarea>
           <button class="btn-token-toggle" onclick="toggleTokenView()">Decode</button>
         </div>
       </div>
@@ -609,6 +610,17 @@ function currentEnv() {
   return ENVIRONMENTS.find(e => e.id === id) || ENVIRONMENTS[0] || null;
 }
 
+function applyProxy(rawUrl) {
+  const useCorsProxy = document.getElementById('corsProxy').checked;
+  const proxyBase = (document.getElementById('corsProxyUrl').value.trim().replace(/\/$/, '')) || 'http://127.0.0.1:3009';
+  return useCorsProxy ? proxyBase + '/?' + encodeURIComponent(rawUrl) : rawUrl;
+}
+
+function loginSectionVisible(env) {
+  if (!env || env.loginUser === undefined || env.loginUser === null) return false;
+  return !document.getElementById('bearerToken').value.trim();
+}
+
 function onEnvChange() {
   const id = document.getElementById('envSelect').value;
   localStorage.setItem('gg_admin_env', id);
@@ -627,8 +639,8 @@ function onEnvChange() {
   document.getElementById('loginUser').value = savedUser ?? env.loginUser ?? '';
   document.getElementById('loginPass').value = '';
 
-  // Show/hide login section
-  document.getElementById('loginSection').style.display = env.loginUser !== undefined && env.loginUser !== null ? '' : 'none';
+  // Show/hide login section — only when no token is already present
+  document.getElementById('loginSection').style.display = loginSectionVisible(env) ? '' : 'none';
 
   saveAuth();
 }
@@ -650,17 +662,21 @@ async function doLogin() {
   btn.textContent = 'Logging in…';
   msg.style.display = 'none';
 
+  const defaultHdrs = Object.assign({}, (window.APP_CONFIG && window.APP_CONFIG.defaultHeaders) || {});
+
   try {
-    // Step 1: get encryption key
-    const keyRes  = await fetch(`${baseUrl}/api/v1/admin/auth/getpasswordencryptkey`, { method: 'GET' });
+    // Step 1: get encryption key (route through CORS proxy if enabled)
+    const keyUrl  = applyProxy(`${baseUrl}/api/v1/admin/auth/getpasswordencryptkey`);
+    const keyRes  = await fetch(keyUrl, { method: 'GET', headers: defaultHdrs });
     const keyData = await keyRes.json();
     const passwordKey = keyData && keyData.key ? keyData.key : null;
 
-    // Step 2: login
+    // Step 2: login (route through CORS proxy if enabled)
+    const loginRawUrl = `${baseUrl}/api/v1/admin/auth/login`;
     const body = JSON.stringify({ userName: username, password, passwordKey: passwordKey || '' });
-    const loginRes = await fetch(`${baseUrl}/api/v1/admin/auth/login`, {
+    const loginRes = await fetch(applyProxy(loginRawUrl), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'accept': 'application/json' },
+      headers: Object.assign({ 'Content-Type': 'application/json', 'accept': 'application/json' }, defaultHdrs),
       body
     });
     const loginData = await loginRes.json();
@@ -674,6 +690,9 @@ async function doLogin() {
     saveAuth();
     showLoginMsg('✓ Token obtained successfully', 'ok');
 
+    // Hide login section now that we have a token
+    document.getElementById('loginSection').style.display = 'none';
+
     // Auto-hide decoded token section
     document.getElementById('tokenDecoded').style.display = 'none';
     document.querySelector('.btn-token-toggle').textContent = 'Decode';
@@ -683,6 +702,17 @@ async function doLogin() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Login & Get Token';
+  }
+}
+
+function onTokenInput() {
+  saveAuth();
+  const env = currentEnv();
+  if (env && env.loginUser !== undefined && env.loginUser !== null) {
+    document.getElementById('loginSection').style.display = loginSectionVisible(env) ? '' : 'none';
+    if (document.getElementById('loginMsg').textContent.startsWith('✓')) {
+      document.getElementById('loginMsg').style.display = 'none';
+    }
   }
 }
 
@@ -845,9 +875,7 @@ async function sendRequest() {
   }
 
   const rawUrl = baseUrl + currentApi.path + (qp.toString() ? '?' + qp.toString() : '');
-  const useCorsProxy = document.getElementById('corsProxy').checked;
-  const proxyBase = (document.getElementById('corsProxyUrl').value.trim().replace(/\/$/, '')) || 'http://127.0.0.1:3009';
-  const url = useCorsProxy ? proxyBase + '/?' + encodeURIComponent(rawUrl) : rawUrl;
+  const url = applyProxy(rawUrl);
 
   // Build headers — start with config defaults, then auth, then extras
   const headers = Object.assign({ 'accept': 'text/plain' }, (window.APP_CONFIG && window.APP_CONFIG.defaultHeaders) || {});
@@ -1110,11 +1138,10 @@ function loadSavedAuth() {
   document.getElementById('corsProxyUrl').value = localStorage.getItem(getStorageKey('corsProxyUrl')) || 'http://127.0.0.1:3009';
   document.getElementById('corsProxyUrlField').style.display = corsEnabled ? '' : 'none';
 
-  // Login section
+  // Login section — only show if env supports credential login AND no token is already present
   const savedLoginUser = localStorage.getItem(getStorageKey('loginUser'));
   document.getElementById('loginUser').value = savedLoginUser ?? (env ? env.loginUser ?? '' : '');
-  document.getElementById('loginSection').style.display =
-    (env && env.loginUser !== undefined && env.loginUser !== null) ? '' : 'none';
+  document.getElementById('loginSection').style.display = loginSectionVisible(env) ? '' : 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════
