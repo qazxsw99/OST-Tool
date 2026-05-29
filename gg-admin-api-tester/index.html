@@ -436,6 +436,13 @@
   </svg>
   <h1>GG Admin API Tester</h1>
   <span class="subtitle">Admin Backend API Testing Tool</span>
+  <div style="flex:1"></div>
+  <label style="font-size:11px;font-weight:500;color:#57606a;margin:0;gap:6px;display:flex;align-items:center;">
+    ENV
+    <select id="envSelect" onchange="onEnvChange()"
+      style="font-size:11px;font-weight:600;padding:4px 8px;border:1px solid #d0d7de;border-radius:6px;background:#fff;color:#24292f;cursor:pointer;outline:none;">
+    </select>
+  </label>
 </header>
 
 <div class="layout">
@@ -499,18 +506,21 @@
         <pre id="tokenPayload" style="font-size:11px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:10px;white-space:pre-wrap;word-break:break-all;color:#24292f;font-family:'Cascadia Code','Fira Code',monospace;max-height:180px;overflow-y:auto"></pre>
       </div>
 
-      <hr class="divider" />
-      <div class="section-title">Login Credentials <span class="opt" style="margin-left:4px;font-size:10px">(or use token above)</span></div>
-      <div class="info-row" style="margin-bottom:2px">
-        <span>If filled, auto-login runs before each request and refreshes the token automatically.</span>
-      </div>
-      <div class="field">
-        <label>Username</label>
-        <input type="text" id="loginUsername" placeholder="e.g. Super002" autocomplete="username" oninput="saveAuth()" />
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="password" id="loginPassword" placeholder="Your password" autocomplete="current-password" />
+      <div id="loginSection" style="display:none">
+        <hr class="divider" />
+        <div class="section-title">Login <span class="opt" style="margin-left:4px;font-size:10px">(get token via credentials)</span></div>
+        <div class="field">
+          <label>Username <span class="req">*</span></label>
+          <input type="text" id="loginUser" placeholder="e.g. QA003" oninput="saveAuth()" />
+        </div>
+        <div class="field">
+          <label>Password <span class="req">*</span></label>
+          <input type="password" id="loginPass" placeholder="Password" oninput="saveAuth()" />
+        </div>
+        <button class="btn" id="btnLogin" onclick="doLogin()" style="align-self:flex-start;margin-top:4px">
+          Login &amp; Get Token
+        </button>
+        <div id="loginMsg" style="font-size:11px;margin-top:4px;display:none"></div>
       </div>
 
       <hr class="divider" />
@@ -587,7 +597,103 @@
 <script>
 // Config is loaded from config.js (window.APP_CONFIG).
 // Edit config.js to change endpoints, auth defaults, and APIs.
-const API_REGISTRY = (window.APP_CONFIG && window.APP_CONFIG.apis) || [];
+const API_REGISTRY  = (window.APP_CONFIG && window.APP_CONFIG.apis) || [];
+const ENVIRONMENTS  = (window.APP_CONFIG && window.APP_CONFIG.environments) || [];
+
+// ── Env helpers ──────────────────────────────────────────────────
+function getStorageKey(key) {
+  const envId = localStorage.getItem('gg_admin_env') || (ENVIRONMENTS[0] && ENVIRONMENTS[0].id) || 'default';
+  return `gg_admin_${envId}_${key}`;
+}
+
+function currentEnv() {
+  const id = localStorage.getItem('gg_admin_env') || (ENVIRONMENTS[0] && ENVIRONMENTS[0].id);
+  return ENVIRONMENTS.find(e => e.id === id) || ENVIRONMENTS[0] || null;
+}
+
+function onEnvChange() {
+  const id = document.getElementById('envSelect').value;
+  localStorage.setItem('gg_admin_env', id);
+  const env = ENVIRONMENTS.find(e => e.id === id);
+  if (!env) return;
+
+  // Apply env defaults only when there's no per-env saved value yet
+  const savedUrl   = localStorage.getItem(getStorageKey('baseUrl'));
+  const savedToken = localStorage.getItem(getStorageKey('token'));
+
+  document.getElementById('baseUrl').value     = savedUrl   ?? env.baseUrl            ?? '';
+  document.getElementById('bearerToken').value = savedToken ?? env.defaultBearerToken ?? '';
+
+  // Pre-fill login username if env has one
+  const savedUser = localStorage.getItem(getStorageKey('loginUser'));
+  document.getElementById('loginUser').value = savedUser ?? env.loginUser ?? '';
+  document.getElementById('loginPass').value = '';
+
+  // Show/hide login section
+  document.getElementById('loginSection').style.display = env.loginUser !== undefined && env.loginUser !== null ? '' : 'none';
+
+  saveAuth();
+}
+
+// ── Login via credentials ────────────────────────────────────────
+async function doLogin() {
+  const baseUrl  = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  const msg      = document.getElementById('loginMsg');
+
+  if (!username || !password) {
+    showLoginMsg('Username and password are required.', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true;
+  btn.textContent = 'Logging in…';
+  msg.style.display = 'none';
+
+  try {
+    // Step 1: get encryption key
+    const keyRes  = await fetch(`${baseUrl}/api/v1/admin/auth/getpasswordencryptkey`, { method: 'GET' });
+    const keyData = await keyRes.json();
+    const passwordKey = keyData && keyData.key ? keyData.key : null;
+
+    // Step 2: login
+    const body = JSON.stringify({ userName: username, password, passwordKey: passwordKey || '' });
+    const loginRes = await fetch(`${baseUrl}/api/v1/admin/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'accept': 'application/json' },
+      body
+    });
+    const loginData = await loginRes.json();
+
+    if (!loginRes.ok || !loginData.token) {
+      showLoginMsg('Login failed: ' + (loginData.title || loginData.message || loginRes.status), 'err');
+      return;
+    }
+
+    document.getElementById('bearerToken').value = loginData.token;
+    saveAuth();
+    showLoginMsg('✓ Token obtained successfully', 'ok');
+
+    // Auto-hide decoded token section
+    document.getElementById('tokenDecoded').style.display = 'none';
+    document.querySelector('.btn-token-toggle').textContent = 'Decode';
+
+  } catch (err) {
+    showLoginMsg('Error: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Login & Get Token';
+  }
+}
+
+function showLoginMsg(text, type) {
+  const el = document.getElementById('loginMsg');
+  el.textContent = text;
+  el.style.color  = type === 'ok' ? '#1a7f37' : '#cf222e';
+  el.style.display = 'block';
+}
 
 // ═══════════════════════════════════════════════════════════════
 // INIT
@@ -599,6 +705,18 @@ let sortState  = { col: null, dir: 'asc' };
 let filterVals = {};          // col -> filter string
 
 function init() {
+  // Populate environment selector
+  const envSel = document.getElementById('envSelect');
+  ENVIRONMENTS.forEach(env => {
+    const opt = document.createElement('option');
+    opt.value = env.id;
+    opt.textContent = env.name;
+    envSel.appendChild(opt);
+  });
+  const savedEnv = localStorage.getItem('gg_admin_env');
+  if (savedEnv && ENVIRONMENTS.find(e => e.id === savedEnv)) envSel.value = savedEnv;
+
+  // Populate API selector
   const select = document.getElementById('apiSelect');
   API_REGISTRY.forEach(api => {
     const opt = document.createElement('option');
@@ -1090,12 +1208,12 @@ function loadPrefs() {
 }
 
 function saveAuth() {
-  localStorage.setItem('gg_admin_baseUrl', document.getElementById('baseUrl').value);
-  localStorage.setItem('gg_admin_token', document.getElementById('bearerToken').value);
-  localStorage.setItem('gg_admin_extraHeaders', document.getElementById('extraHeaders').value);
-  localStorage.setItem('gg_admin_corsProxy', document.getElementById('corsProxy').checked ? '1' : '');
-  localStorage.setItem('gg_admin_corsProxyUrl', document.getElementById('corsProxyUrl').value);
-  localStorage.setItem('gg_admin_loginUsername', document.getElementById('loginUsername').value);
+  localStorage.setItem(getStorageKey('baseUrl'),      document.getElementById('baseUrl').value);
+  localStorage.setItem(getStorageKey('token'),        document.getElementById('bearerToken').value);
+  localStorage.setItem(getStorageKey('extraHeaders'), document.getElementById('extraHeaders').value);
+  localStorage.setItem(getStorageKey('corsProxy'),    document.getElementById('corsProxy').checked ? '1' : '');
+  localStorage.setItem(getStorageKey('corsProxyUrl'), document.getElementById('corsProxyUrl').value);
+  localStorage.setItem(getStorageKey('loginUser'),    document.getElementById('loginUser').value);
 }
 
 function onCorsProxyToggle() {
@@ -1110,18 +1228,27 @@ function defaultHeadersToText(headers) {
 }
 
 function loadSavedAuth() {
+  const env = currentEnv();
   const cfg = window.APP_CONFIG || {};
-  const url   = localStorage.getItem('gg_admin_baseUrl')      || cfg.defaultBaseUrl     || '';
-  const token = localStorage.getItem('gg_admin_token')        || cfg.defaultBearerToken || '';
-  const extra = localStorage.getItem('gg_admin_extraHeaders') ?? defaultHeadersToText(cfg.defaultHeaders);
+
+  const url   = localStorage.getItem(getStorageKey('baseUrl'))      ?? (env ? env.baseUrl            : cfg.defaultBaseUrl     ?? '');
+  const token = localStorage.getItem(getStorageKey('token'))        ?? (env ? env.defaultBearerToken : cfg.defaultBearerToken ?? '');
+  const extra = localStorage.getItem(getStorageKey('extraHeaders')) ?? defaultHeadersToText(cfg.defaultHeaders);
+
   document.getElementById('baseUrl').value      = url;
   document.getElementById('bearerToken').value  = token;
   document.getElementById('extraHeaders').value = extra;
-  const corsEnabled = !!localStorage.getItem('gg_admin_corsProxy');
+
+  const corsEnabled = !!localStorage.getItem(getStorageKey('corsProxy'));
   document.getElementById('corsProxy').checked  = corsEnabled;
-  document.getElementById('corsProxyUrl').value = localStorage.getItem('gg_admin_corsProxyUrl') || 'http://127.0.0.1:3009';
+  document.getElementById('corsProxyUrl').value = localStorage.getItem(getStorageKey('corsProxyUrl')) || 'http://127.0.0.1:3009';
   document.getElementById('corsProxyUrlField').style.display = corsEnabled ? '' : 'none';
-  document.getElementById('loginUsername').value = localStorage.getItem('gg_admin_loginUsername') || '';
+
+  // Login section
+  const savedLoginUser = localStorage.getItem(getStorageKey('loginUser'));
+  document.getElementById('loginUser').value = savedLoginUser ?? (env ? env.loginUser ?? '' : '');
+  document.getElementById('loginSection').style.display =
+    (env && env.loginUser !== undefined && env.loginUser !== null) ? '' : 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════
