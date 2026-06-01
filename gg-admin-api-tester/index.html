@@ -1211,6 +1211,10 @@ function detectAndEnableTable(parsed) {
   const badge = document.getElementById('arrayPathBadge');
   badge.textContent = found.path + '  [' + found.arr.length + ']';
   badge.classList.add('visible');
+
+  if (document.getElementById('tableWrapper').classList.contains('active')) {
+    renderTableView();
+  }
 }
 
 function hideTableToggle() {
