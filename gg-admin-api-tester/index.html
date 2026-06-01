@@ -939,7 +939,9 @@ async function sendRequest() {
   document.getElementById('statusBadge').textContent = '';
   document.getElementById('elapsed').textContent = '';
   document.getElementById('respMeta').textContent = 'Sending…';
-  document.getElementById('responseOutput').innerHTML = '';
+  document.getElementById('responseOutput').innerHTML = '<div style="display:flex;align-items:center;gap:8px;color:#8c959f;padding:8px 0"><span class="spinner" style="border-color:rgba(0,0,0,.15);border-top-color:#8c959f"></span> Loading…</div>';
+  document.getElementById('tableHead').innerHTML = '';
+  document.getElementById('tableBody').innerHTML = '';
 
   const t0 = performance.now();
 
